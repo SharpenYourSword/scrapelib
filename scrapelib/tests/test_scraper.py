@@ -1,6 +1,5 @@
 import os
 import glob
-import json
 import tempfile
 from io import BytesIO
 
@@ -45,14 +44,14 @@ def test_get():
     s = Scraper(requests_per_minute=0)
     resp = s.get(HTTPBIN + 'get?woo=woo')
     assert resp.status_code == 200
-    assert json.loads(resp.content)['args']['woo'] == 'woo'
+    assert resp.json()['args']['woo'] == 'woo'
 
 
 def test_post():
     s = Scraper(requests_per_minute=0)
     resp = s.post(HTTPBIN + 'post', {'woo': 'woo'})
     assert resp.status_code == 200
-    resp_json = json.loads(resp.content)
+    resp_json = resp.json()
     assert resp_json['form']['woo'] == 'woo'
     assert resp_json['headers']['Content-Type'] == 'application/x-www-form-urlencoded'
 
@@ -88,12 +87,12 @@ def test_request_throttling():
 def test_user_agent():
     s = Scraper(requests_per_minute=0)
     resp = s.get(HTTPBIN + 'user-agent')
-    ua = json.loads(resp.content)['user-agent']
+    ua = resp.json()['user-agent']
     assert ua == default_user_agent
 
     s.user_agent = 'a different agent'
     resp = s.get(HTTPBIN + 'user-agent')
-    ua = json.loads(resp.content)['user-agent']
+    ua = resp.json()['user-agent']
     assert ua == 'a different agent'
 
 
@@ -101,7 +100,7 @@ def test_user_agent_from_headers():
     s = Scraper(requests_per_minute=0)
     s.headers = {'User-Agent': 'from headers'}
     resp = s.get(HTTPBIN + 'user-agent')
-    ua = json.loads(resp.content)['user-agent']
+    ua = resp.json()['user-agent']
     assert ua == 'from headers'
 
 
@@ -274,31 +273,31 @@ def test_disable_compression():
 
     # compression disabled
     data = s.get(HTTPBIN + 'headers')
-    assert 'compress' not in json.loads(data.content)['headers']['Accept-Encoding']
-    assert 'gzip' not in json.loads(data.content)['headers']['Accept-Encoding']
+    assert 'compress' not in data.json()['headers']['Accept-Encoding']
+    assert 'gzip' not in data.json()['headers']['Accept-Encoding']
 
     # default is restored
     s.disable_compression = False
     data = s.get(HTTPBIN + 'headers')
-    assert 'compress' in json.loads(data.content)['headers']['Accept-Encoding']
-    assert 'gzip' in json.loads(data.content)['headers']['Accept-Encoding']
+    assert 'compress' in data.json()['headers']['Accept-Encoding']
+    assert 'gzip' in data.json()['headers']['Accept-Encoding']
 
     # A supplied Accept-Encoding headers overrides the
     # disable_compression option
     s.headers['Accept-Encoding'] = 'xyz'
     data = s.get(HTTPBIN + 'headers')
-    assert 'xyz' in json.loads(data.content)['headers']['Accept-Encoding']
+    assert 'xyz' in data.json()['headers']['Accept-Encoding']
 
 
 def test_callable_headers():
     s = Scraper(header_func=lambda url: {'X-Url': url})
 
     data = s.get(HTTPBIN + 'headers')
-    assert json.loads(data.content)['headers']['X-Url'] == HTTPBIN + 'headers'
+    assert data.json()['headers']['X-Url'] == HTTPBIN + 'headers'
 
     # Make sure it gets called freshly each time
     data = s.get(HTTPBIN + 'headers?shh')
-    assert json.loads(data.content)['headers']['X-Url'] == HTTPBIN + 'headers?shh'
+    assert data.json()['headers']['X-Url'] == HTTPBIN + 'headers?shh'
 
 
 def test_ftp_uses_urllib2():
@@ -308,7 +307,7 @@ def test_ftp_uses_urllib2():
     with mock.patch('scrapelib.urllib_urlopen', urlopen):
         r = s.get('ftp://dummy/')
         assert r.status_code == 200
-        assert r.content == "ftp success!"
+        assert r.content == b"ftp success!"
 
 
 def test_ftp_retries():
@@ -327,7 +326,7 @@ def test_ftp_retries():
     with mock.patch('scrapelib.urllib_urlopen', mock_urlopen):
         s = Scraper(retry_attempts=2, retry_wait_seconds=0.001)
         r = s.get('ftp://dummy/', retry_on_404=True)
-        assert r.content == "ftp success!"
+        assert r.content == b"ftp success!"
     assert mock_urlopen.call_count == 2
 
     # retry off, retry_on_404 on (shouldn't matter)
